@@ -1,0 +1,82 @@
+P200  example 5.8.1
+
+模型为一个置中圆盘的对称转子。
+轴为空心的，外径为80mm，内径为30mm，长1.2m。轴用欧拉-伯努利单元划分，即不考虑剪切与转动惯量。轴无内阻尼。
+盘直径为400mm，厚80mm。
+盘与轴由钢铁制成，E=200 GPa ρ=7800 kg/m^3 μ=0.27.
+轴承置于轴的两端，假设为刚性短轴承。
+观察随着划分单元的数量改变，模型仿真结果的变化？
+
+结果：
+
+code讲解：
+% set the material parameters
+E = 2.00e11;
+Poisson = 0.27;
+G = E/(2*(1+Poisson))
+rho = 7800;
+damping_factor = 0; %无内阻尼
+
+% set the gepmetric parameters
+shaft_od = 0.08; %轴外径
+shaft_id = 0.03; %轴内径
+shaft_length = 1.2; %轴长
+disk_od = 0.4; %盘外径
+disk_thick = 0.08; %盘厚
+
+
+% Fix the rotor spin speed
+Rotor_Spd_rpm = 5000.0 %5000r/min
+Rotor_Spd = 2*pi*Rotor_Spd_rpm/60;  %r/min 变 rad/s
+
+% Look at a range of numbers of elements
+NEE = [2 4 6 8 10 12 14 16 18 20 80];  %对轴划分单元的数量， 对轴只划分两个单元、....、对轴划分80个单元
+npts = length(NEE); 
+nat_freqs_Hz = zeros(8,npts); %分析前八阶固有频率，所以行数为8.   nat_freqs_Hz矩阵的第i行j列表示第j种划分情况下计算出的 轴第i阶固有频率
+for i=1:npts %遍历每种情况
+    NE = NEE(i);  %单元数量
+    Le = 1.2/NE;  %单元长度
+    model.node = [(1:(NE+1)).' Le*(0:NE).']; %结点矩阵 第一列为节点号 第二列为节点位置
+    model.shaft = [2*ones(NE,1) (1:NE)' (2:(NE+1))' ones(NE,1)*[shaft_od shaft_id rho E G damping_factor] ]; %轴矩阵 第一列为轴单元类型 第二列为轴单元的开始结点 第三列为轴单元的结束结点
+    %第四列为轴单元外径 第五列为轴单元内径 第六列为轴密度 第七列为轴弹性模量 第八列为轴剪切模量 第九列为轴阻尼比
+    model.disc = [1 1+NE/2 rho disk_thick disk_od shaft_od]; %盘矩阵 第一列为盘类型 第二列为盘所在轴上的位置 第三列为盘密度 第四列为盘厚 第五列为盘外径 第六列为轴外径
+    model.bearing = [1 1; 1 NE+1]; %轴承矩阵 第一列为轴承类型 第二列为轴承所在的节点号
+    % plot out case with 6 elements
+    if NE==6, figure(1), clf, picrotor(model), end  %调用picrotor绘制模型
+    eigenvalues = chr_root(model,Rotor_Spd); %调用chr_root计算临界转速
+    nat_freqs_Hz(:,i) = abs(eigenvalues(1:2:16)/(2*pi)); %求前8阶临界转速，则会得到16个特征值，取奇数个特征值作为临界转速，并转化为rad/s。 
+end %即nat_freqs_Hz第一列为划分2个单元后计算出的前8阶临界转速，第二列为划分3个单元后计算出的前8阶临界转速，...
+
+
+% calculate percentage error in natural frequencies and plot
+
+nat_freq_per = 100*(nat_freqs_Hz(:,1:npts-1)-nat_freqs_Hz(:,npts)*ones(1,npts-1))... %？？？
+    ./(nat_freqs_Hz(:,npts)*ones(1,npts-1));
+figure(2), clf
+semilogy(NEE(1:npts-1),nat_freq_per)
+xlabel('Number of elements')
+ylabel('Natural frequency error (%)')
+legend('Mode 1','Mode 2','Mode 3','Mode 4','Mode 5','Mode 6','Mode 7','Mode 8')
+grid
+
+
+----------------------------------------
+补充：
+x = a*sin(wt)
+x'' = -a*w^2*sin(wt)
+所以 x'' = -x*w^2
+
+单盘转子
+令 u1=[x,θy]T u2=[y,-θx]T
+方程：
+Mx*u1'' + Ω*Jx*u2' + Kx*u1 = 0
+My*u2'' - Ω*Jy*u1' + Ky*u2 = 0
+其中
+Mx = My = diag(m,Jd)
+Jx = Jy = diag(0,Jp)
+Kx = Ky = [k11,k12;k21,k22]
+将方程展开：
+m*x''+ K11*x + k12*θy = 0
+Jd*θy'' - Ω*Jp*θx' + K21*x + k22*θy = 0
+m*y''+ K11*y + k12*θx = 0
+Jd*θx'' + Ω*Jp*θy' + K21*y + k22*θx = 0

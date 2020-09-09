@@ -43,7 +43,7 @@ for i=1:npts %遍历每种情况
     model.bearing = [1 1; 1 NE+1]; %轴承矩阵 第一列为轴承类型 第二列为轴承所在的节点号
     % plot out case with 6 elements
     if NE==6, figure(1), clf, picrotor(model), end  %调用picrotor绘制模型
-    eigenvalues = chr_root(model,Rotor_Spd); %调用chr_root计算临界转速
+    eigenvalues = chr_root(model,Rotor_Spd); %调用chr_root计算临界转速 eigenvalues是一个维度为[2*自由度数,转速个数]的矩阵
     nat_freqs_Hz(:,i) = abs(eigenvalues(1:2:16)/(2*pi)); %求前8阶临界转速，则会得到16个特征值，取奇数个特征值作为临界转速，并转化为rad/s。 
 end %即nat_freqs_Hz第一列为划分2个单元后计算出的前8阶临界转速，第二列为划分3个单元后计算出的前8阶临界转速，...
 
